@@ -1,0 +1,29 @@
+# CMake build directory
+build/
+cmake-build-*/
+
+# Compiled object files
+*.o
+*.obj
+
+# Compiled static/shared libraries
+*.a
+*.so
+*.dylib
+*.dll
+*.lib
+
+# Compiled executables
+transaction_manager
+test_transactions
+test_deadlock
+test_recovery
+
+# IDE / editor artifacts
+.vscode/
+.idea/
+*.swp
+*~
+
+# macOS
+.DS_Store
