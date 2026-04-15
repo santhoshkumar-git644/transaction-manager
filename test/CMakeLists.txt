@@ -11,6 +11,7 @@ add_executable(test_transactions test_transactions.cpp
 
 add_executable(test_deadlock test_deadlock.cpp
     ../src/concurrency/Lock.cpp
+    ../src/concurrency/LockManager.cpp
     ../src/concurrency/WaitForGraph.cpp
 )
 
