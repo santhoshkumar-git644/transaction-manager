@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <ctime>
+#include <memory>
 
 class LogRecord {
 public:
@@ -18,13 +19,18 @@ public:
     };
     
     LogRecord(uint32_t transaction_id, LogType type);
+    LogRecord(uint32_t transaction_id, LogType type, time_t timestamp);
     ~LogRecord();
     
     uint32_t getTransactionId() const;
     LogType getLogType() const;
     time_t getTimestamp() const;
     
-    // TODO: Add methods for serialization
+    std::string toString() const;
+    static std::shared_ptr<LogRecord> fromString(const std::string& serialized);
+
+    static std::string logTypeToString(LogType type);
+    static bool stringToLogType(const std::string& value, LogType& out_type);
     
 private:
     uint32_t transaction_id_;

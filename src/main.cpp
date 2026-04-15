@@ -35,6 +35,9 @@ int main() {
     
     // Commit transaction
     tm.commitTransaction(txn->getTransactionId());
+    auto commit_record = std::make_shared<LogRecord>(txn->getTransactionId(), LogRecord::LogType::COMMIT);
+    log_mgr.writeLog(commit_record);
+    log_mgr.flushLogs();
     std::cout << "Transaction committed\n";
     
     return 0;

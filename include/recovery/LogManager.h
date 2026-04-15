@@ -4,6 +4,7 @@
 #include <fstream>
 #include <vector>
 #include <memory>
+#include <string>
 #include "LogRecord.h"
 
 class LogManager {
@@ -20,6 +21,7 @@ public:
     
 private:
     std::ofstream log_file_;
+    std::string log_file_path_;
     std::vector<std::shared_ptr<LogRecord>> log_buffer_;
 };
 
