@@ -17,8 +17,6 @@ public:
     void flushLogs();
     void clearLogs();
     
-    // TODO: Implement checkpointing
-    
 private:
     std::ofstream log_file_;
     std::string log_file_path_;
