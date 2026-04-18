@@ -154,7 +154,7 @@ bool LockManager::hasLock(uint32_t transaction_id, uint32_t resource_id) const {
 LockType LockManager::getLockType(uint32_t resource_id) const {
     auto it = resource_locks_.find(resource_id);
     if (it == resource_locks_.end() || it->second.empty()) {
-        return LockType::SHARED;
+        return LockType::NONE;
     }
 
     bool has_ix = false;
@@ -180,7 +180,7 @@ LockType LockManager::getLockType(uint32_t resource_id) const {
     if (has_is) {
         return LockType::INTENTION_SHARED;
     }
-    return LockType::SHARED;
+    return LockType::NONE;
 }
 
 bool LockManager::isCompatible(LockType existing, LockType requested) const {

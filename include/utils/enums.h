@@ -17,12 +17,14 @@ enum class TransactionState {
 
 /**
  * @brief Lock types for concurrency control (2-Phase Locking)
+ * NONE                - No lock is currently held on the resource
  * SHARED              - Multiple transactions can read simultaneously
  * EXCLUSIVE           - Only one transaction can access the resource
  * INTENTION_SHARED    - Intent to acquire shared locks on children (for hierarchical locking)
  * INTENTION_EXCLUSIVE - Intent to acquire exclusive locks on children
  */
 enum class LockType {
+    NONE,
     SHARED,
     EXCLUSIVE,
     INTENTION_SHARED,
