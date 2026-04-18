@@ -31,10 +31,10 @@ int main() {
         assert(!lock_mgr.requestLock(3, resource, LockType::EXCLUSIVE));
         assert(!lock_mgr.hasLock(3, resource));
 
-        // Releasing shared locks should grant queued exclusive lock in FIFO order.
-        assert(lock_mgr.releaseLock(1, resource));
+        // Strict 2PL: locks are released only at transaction completion.
+        assert(lock_mgr.completeTransaction(1));
         assert(!lock_mgr.hasLock(3, resource));
-        assert(lock_mgr.releaseLock(2, resource));
+        assert(lock_mgr.completeTransaction(2));
         assert(lock_mgr.hasLock(3, resource));
         assert(lock_mgr.getLockType(resource) == LockType::EXCLUSIVE);
     }

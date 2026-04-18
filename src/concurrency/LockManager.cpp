@@ -7,6 +7,10 @@ LockManager::~LockManager() {
 }
 
 bool LockManager::requestLock(uint32_t transaction_id, uint32_t resource_id, LockType lock_type) {
+    if (completed_transactions_.find(transaction_id) != completed_transactions_.end()) {
+        return false;
+    }
+
     auto& locks = resource_locks_[resource_id];
 
     std::shared_ptr<Lock> existing_lock;
@@ -37,6 +41,7 @@ bool LockManager::requestLock(uint32_t transaction_id, uint32_t resource_id, Loc
         if (upgrade_compatible) {
             locks.erase(existing_lock);
             locks.insert(std::make_shared<Lock>(transaction_id, lock_type));
+            txn_locks_[transaction_id].insert(resource_id);
             return true;
         }
     } else {
@@ -50,6 +55,7 @@ bool LockManager::requestLock(uint32_t transaction_id, uint32_t resource_id, Loc
 
         if (compatible) {
             locks.insert(std::make_shared<Lock>(transaction_id, lock_type));
+            txn_locks_[transaction_id].insert(resource_id);
             return true;
         }
     }
@@ -71,6 +77,11 @@ bool LockManager::requestLock(uint32_t transaction_id, uint32_t resource_id, Loc
 }
 
 bool LockManager::releaseLock(uint32_t transaction_id, uint32_t resource_id) {
+    // Strict 2PL: do not allow lock release while transaction is active.
+    if (completed_transactions_.find(transaction_id) == completed_transactions_.end()) {
+        return false;
+    }
+
     auto it = resource_locks_.find(resource_id);
     if (it != resource_locks_.end()) {
         auto& locks = it->second;
@@ -87,6 +98,13 @@ bool LockManager::releaseLock(uint32_t transaction_id, uint32_t resource_id) {
         }
 
         if (removed) {
+            if (txn_locks_.find(transaction_id) != txn_locks_.end()) {
+                txn_locks_[transaction_id].erase(resource_id);
+                if (txn_locks_[transaction_id].empty()) {
+                    txn_locks_.erase(transaction_id);
+                }
+            }
+
             processWaitQueue(resource_id);
 
             if (resource_locks_[resource_id].empty()) {
@@ -99,6 +117,26 @@ bool LockManager::releaseLock(uint32_t transaction_id, uint32_t resource_id) {
         }
     }
     return false;
+}
+
+bool LockManager::completeTransaction(uint32_t transaction_id) {
+    completed_transactions_.insert(transaction_id);
+
+    auto held_it = txn_locks_.find(transaction_id);
+    if (held_it == txn_locks_.end()) {
+        return true;
+    }
+
+    const auto held_resources = held_it->second;
+    bool released_any = false;
+    for (uint32_t resource_id : held_resources) {
+        if (releaseLock(transaction_id, resource_id)) {
+            released_any = true;
+        }
+    }
+
+    txn_locks_.erase(transaction_id);
+    return released_any;
 }
 
 bool LockManager::hasLock(uint32_t transaction_id, uint32_t resource_id) const {
@@ -186,6 +224,7 @@ void LockManager::processWaitQueue(uint32_t resource_id) {
         }
 
         locks.insert(std::make_shared<Lock>(request.transaction_id, request.lock_type));
+        txn_locks_[request.transaction_id].insert(resource_id);
         queue.pop_front();
     }
 }

@@ -253,9 +253,7 @@ int main() {
                 continue;
             }
 
-            for (uint32_t resource_id : txn_held_resources[txn_id]) {
-                lock_mgr.releaseLock(txn_id, resource_id);
-            }
+            lock_mgr.completeTransaction(txn_id);
             txn_held_resources.erase(txn_id);
 
             log_mgr->writeLog(std::make_shared<LogRecord>(txn_id, LogRecord::LogType::COMMIT));
@@ -278,9 +276,7 @@ int main() {
                 continue;
             }
 
-            for (uint32_t resource_id : txn_held_resources[txn_id]) {
-                lock_mgr.releaseLock(txn_id, resource_id);
-            }
+            lock_mgr.completeTransaction(txn_id);
             txn_held_resources.erase(txn_id);
 
             log_mgr->writeLog(std::make_shared<LogRecord>(txn_id, LogRecord::LogType::ABORT));
@@ -320,13 +316,12 @@ int main() {
 
         if (cmd.op == "RECOVER") {
             auto active_ids = tm.getActiveTransactionIds();
+            tm.abortAllTransactions();
+
             for (uint32_t txn_id : active_ids) {
-                for (uint32_t resource_id : txn_held_resources[txn_id]) {
-                    lock_mgr.releaseLock(txn_id, resource_id);
-                }
+                lock_mgr.completeTransaction(txn_id);
                 txn_held_resources.erase(txn_id);
             }
-            tm.abortAllTransactions();
             pending.clear();
 
             log_mgr->flushLogs();
