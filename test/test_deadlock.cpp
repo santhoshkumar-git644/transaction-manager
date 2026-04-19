@@ -39,6 +39,27 @@ int main() {
         assert(lock_mgr.getLockType(resource) == LockType::EXCLUSIVE);
     }
 
+    {
+        LockManager lock_mgr;
+        const uint32_t table = 100;
+        const uint32_t row = 101;
+        lock_mgr.setResourceParent(row, table);
+
+        // X on row should acquire IX on table.
+        assert(lock_mgr.requestLock(1, row, LockType::EXCLUSIVE));
+        assert(lock_mgr.hasLock(1, row));
+        assert(lock_mgr.hasLock(1, table));
+        assert(lock_mgr.getLockType(table) == LockType::INTENTION_EXCLUSIVE);
+
+        // S on parent table conflicts with IX while txn 1 is active.
+        assert(!lock_mgr.requestLock(2, table, LockType::SHARED));
+
+        // Completing txn 1 releases both row and ancestor intention locks.
+        assert(lock_mgr.completeTransaction(1));
+        assert(lock_mgr.hasLock(2, table));
+        assert(lock_mgr.getLockType(table) == LockType::SHARED);
+    }
+
     std::cout << "All deadlock and lock manager checks passed\n";
     return 0;
 }

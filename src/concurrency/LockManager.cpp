@@ -1,12 +1,31 @@
 #include "../../include/concurrency/LockManager.h"
 
+#include <algorithm>
+#include <vector>
+
 LockManager::LockManager() {
 }
 
 LockManager::~LockManager() {
 }
 
+void LockManager::setResourceParent(uint32_t child_resource_id, uint32_t parent_resource_id) {
+    resource_parent_[child_resource_id] = parent_resource_id;
+}
+
 bool LockManager::requestLock(uint32_t transaction_id, uint32_t resource_id, LockType lock_type) {
+    if (completed_transactions_.find(transaction_id) != completed_transactions_.end()) {
+        return false;
+    }
+
+    if (!ensureAncestorIntentionLocks(transaction_id, resource_id, lock_type)) {
+        return false;
+    }
+
+    return requestLockOnResource(transaction_id, resource_id, lock_type);
+}
+
+bool LockManager::requestLockOnResource(uint32_t transaction_id, uint32_t resource_id, LockType lock_type) {
     if (completed_transactions_.find(transaction_id) != completed_transactions_.end()) {
         return false;
     }
@@ -74,6 +93,47 @@ bool LockManager::requestLock(uint32_t transaction_id, uint32_t resource_id, Loc
     }
 
     return false;
+}
+
+bool LockManager::ensureAncestorIntentionLocks(uint32_t transaction_id, uint32_t resource_id, LockType requested_type) {
+    const LockType intention_type = getAncestorIntentionType(requested_type);
+    if (intention_type == LockType::NONE) {
+        return true;
+    }
+
+    std::vector<uint32_t> ancestors;
+    std::set<uint32_t> seen;
+
+    auto parent_it = resource_parent_.find(resource_id);
+    while (parent_it != resource_parent_.end()) {
+        const uint32_t parent = parent_it->second;
+        if (seen.find(parent) != seen.end()) {
+            break;
+        }
+
+        ancestors.push_back(parent);
+        seen.insert(parent);
+        parent_it = resource_parent_.find(parent);
+    }
+
+    std::reverse(ancestors.begin(), ancestors.end());
+    for (uint32_t ancestor_id : ancestors) {
+        if (!requestLockOnResource(transaction_id, ancestor_id, intention_type)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+LockType LockManager::getAncestorIntentionType(LockType requested_type) const {
+    if (requested_type == LockType::EXCLUSIVE || requested_type == LockType::INTENTION_EXCLUSIVE) {
+        return LockType::INTENTION_EXCLUSIVE;
+    }
+    if (requested_type == LockType::SHARED || requested_type == LockType::INTENTION_SHARED) {
+        return LockType::INTENTION_SHARED;
+    }
+    return LockType::NONE;
 }
 
 bool LockManager::releaseLock(uint32_t transaction_id, uint32_t resource_id) {

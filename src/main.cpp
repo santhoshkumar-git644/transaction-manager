@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <fstream>
 #include <map>
 #include <set>
 #include <vector>
@@ -53,19 +54,48 @@ int main() {
     };
 
     auto ensureResource = [&](const std::string& resource_name) {
-        auto it = resource_ids.find(resource_name);
-        if (it != resource_ids.end()) {
-            return it->second;
+        std::stringstream parts(resource_name);
+        std::string segment;
+        std::string path;
+        uint32_t last_id = 0;
+
+        while (std::getline(parts, segment, '.')) {
+            if (segment.empty()) {
+                continue;
+            }
+
+            path = path.empty() ? segment : path + "." + segment;
+            auto it = resource_ids.find(path);
+            if (it != resource_ids.end()) {
+                last_id = it->second;
+                continue;
+            }
+
+            const uint32_t resource_id = next_resource_id++;
+            resource_ids[path] = resource_id;
+
+            if (last_id != 0) {
+                lock_mgr.setResourceParent(resource_id, last_id);
+            }
+
+            auto record = std::make_shared<Record>(resource_id);
+            const int initial_value = (path == "A") ? 10 : 0;
+            record->setData(intToBytes(initial_value));
+            data_store.insertRecord(record);
+
+            last_id = resource_id;
         }
 
-        const uint32_t resource_id = next_resource_id++;
-        resource_ids[resource_name] = resource_id;
+        if (last_id == 0) {
+            const uint32_t resource_id = next_resource_id++;
+            resource_ids[resource_name] = resource_id;
+            auto record = std::make_shared<Record>(resource_id);
+            record->setData(intToBytes(0));
+            data_store.insertRecord(record);
+            return resource_id;
+        }
 
-        auto record = std::make_shared<Record>(resource_id);
-        const int initial_value = (resource_name == "A") ? 10 : 0;
-        record->setData(intToBytes(initial_value));
-        data_store.insertRecord(record);
-        return resource_id;
+        return last_id;
     };
 
     auto executeCommand = [&](const Command& cmd, bool from_pending) {
@@ -157,9 +187,15 @@ int main() {
         }
     };
 
+    std::ifstream file_input("input.txt");
+    std::istream* input_stream = &std::cin;
+    if (file_input.is_open()) {
+        input_stream = &file_input;
+    }
+
     std::string line;
     printHelp();
-    while (std::getline(std::cin, line)) {
+    while (std::getline(*input_stream, line)) {
         if (line.empty()) {
             continue;
         }
